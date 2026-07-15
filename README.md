@@ -5,8 +5,7 @@ Simulation code accompanying:
 > Wong, R. K. W., Cao, G., and Li, Y. "Functional Regression via Set Embedding." 
 
 This repository contains the R code used to run the simulation study in Section 6.1 of the
-paper and Section S.4 of the Supplementary Material (Tables 1–2 in the main text and
-Tables S.1–S.7 in the supplement).
+paper.
 
 ## What the simulation does
 
@@ -22,10 +21,7 @@ For each configuration in a grid of
 - estimation method (see mapping below),
 
 the script generates 500 (`N_REPS`) independent Monte Carlo replications, fits the specified
-estimator, and records the prediction mean-squared error on an independent test set. Results
-are written per configuration and then aggregated into a single `all_method_config_summary.csv`
-per run (mean/SD of prediction MSE and other diagnostics), which is what the paper's tables
-report.
+estimator, and records the prediction mean-squared error on an independent test set.
 
 ### Method name mapping
 
