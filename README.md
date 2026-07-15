@@ -2,7 +2,7 @@
 
 Simulation code accompanying:
 
-> Wong, R. K. W., Cao, G., and Li, Y. "Functional Regression via Set Embedding." Submitted to *Biometrika*.
+> Wong, R. K. W., Cao, G., and Li, Y. "Functional Regression via Set Embedding." 
 
 This repository contains the R code used to run the simulation study in Section 6.1 of the
 paper and Section S.4 of the Supplementary Material (Tables 1–2 in the main text and
