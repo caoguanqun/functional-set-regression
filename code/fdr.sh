@@ -1,30 +1,29 @@
 #!/usr/bin/env bash
-#SBATCH --job-name=fdr_2_pace_rkhs
-#SBATCH --account=general
+#SBATCH --job-name=fdr
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --mem=16G
-#SBATCH --time=08:00:00
+#SBATCH --time=02:00:00
 #SBATCH --array=1-12
-#SBATCH --output=logs/fdr_2-%A_%a.out
-#SBATCH --error=logs/fdr_2-%A_%a.err
+#SBATCH --output=logs/fdr-%A_%a.out
+#SBATCH --error=logs/fdr-%A_%a.err
+
 
 set -euo pipefail
 
 WORKDIR="${SLURM_SUBMIT_DIR}"
 mkdir -p "${WORKDIR}/logs"
 
-export RESULT_DIR="${RESULT_DIR:-${WORKDIR}/results_plugin_n100}"
+export RESULT_DIR="${RESULT_DIR:-${WORKDIR}/results}"
 export N_CORES="${N_CORES:-1}"
 
 export SEED_START="${SEED_START:-42}"
-export N_REPS="${N_REPS:-50}"
+export N_REPS="${N_REPS:-500}"
 export N_GRID="${N_GRID:-100}"
 export OBS_COUNT_GRID="${OBS_COUNT_GRID:-10}"
 #10,30,60
 export OBS_COUNT_MODE="${OBS_COUNT_MODE:-random}"
 #fixed,random
-#random=2*fixed
 export Y_MODE_GRID="${Y_MODE_GRID:-flr_linear,flr_square,flr_cube}"
 #flr_linear,flr_square,flr_cube
 export SCORE_DIST_GRID="${SCORE_DIST_GRID:-gaussian,laplace,t5,gamma}"
@@ -68,4 +67,4 @@ Rscript fdr.R manifest >/dev/null 2>&1 || true
 
 srun --export=ALL \
   --hint=nomultithread --cpu-bind=cores \
-  Rscript fdr_2.R task "${SLURM_ARRAY_TASK_ID}"
+  Rscript fdr.R task "${SLURM_ARRAY_TASK_ID}"

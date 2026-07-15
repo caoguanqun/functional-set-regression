@@ -2,27 +2,19 @@
 # 0) parameters
 # =========================
 parse_char_vector <- function(x, default = character()) {
-  if (is.null(x) || !nzchar(x)) return(default)
-  vals <- trimws(unlist(strsplit(x, ",", fixed = TRUE), use.names = FALSE))
-  vals[nzchar(vals)]
+  trimws(strsplit(x, ",", fixed = TRUE)[[1]])
 }
 
 parse_numeric_vector <- function(x, default = numeric()) {
-  vals <- parse_char_vector(x, character())
-  if (length(vals) == 0) return(default)
-  out <- suppressWarnings(as.numeric(vals))
-  out[!is.na(out)]
+  as.numeric(parse_char_vector(x))
 }
 
 parse_integer_vector <- function(x, default = integer()) {
-  vals <- parse_char_vector(x, character())
-  if (length(vals) == 0) return(default)
-  out <- suppressWarnings(as.integer(vals))
-  out[!is.na(out)]
+  as.integer(parse_char_vector(x))
 }
 
 seed_start <- as.integer(Sys.getenv("SEED_START", unset = "42"))
-n_reps <- as.integer(Sys.getenv("N_REPS", unset = "100"))
+n_reps <- as.integer(Sys.getenv("N_REPS", unset = "500"))
 
 # simulation settings
 n_grid <- parse_integer_vector(Sys.getenv("N_GRID", unset = "50"), default = c(50L))
@@ -68,7 +60,7 @@ split_repeats <- 2
 #split=what
 
 # runtime controls
-n_cores <- max(1L, as.integer(Sys.getenv("N_CORES", unset = "1")))
+n_cores <- as.integer(Sys.getenv("N_CORES", unset = "1"))
 
 #l_H_grid <- c(0.40, 0.50, 0.55, 0.60, 0.70, 0.80, 0.90,
 #              1.00, 1.10, 1.20, 1.30, 1.45, 1.60)
@@ -90,7 +82,7 @@ lambda_grid <- c(5e-5, 8e-5, 1.2e-4, 2e-4, 4e-4, 8e-4)
 # output paths
 root_results_dir <- Sys.getenv(
   "RESULT_DIR",
-  unset = file.path(getwd(), "results_fdr_all_methods_linear")
+  unset = file.path(getwd(), "results_fdrr")
 )
 
 suppressPackageStartupMessages({
@@ -186,12 +178,10 @@ centered_gamma <- function(n, shape = 2, scale = 1) {
 
 sample_obs_count <- function(obs_count, obs_count_mode) {
   if (obs_count_mode == "fixed") {
-    return(obs_count)
+    obs_count
+  } else {
+    sample(obs_count:(2L * obs_count), size = 1L)
   }
-  if (obs_count_mode == "random") {
-    return(sample(obs_count:(2L * obs_count), size = 1L))
-  }
-  stop("Unsupported obs_count_mode.")
 }
 
 make_task_grid <- function() {
@@ -208,7 +198,7 @@ make_task_grid <- function() {
 }
 
 # =========================
-# 2) live csv append helpers
+# 2) csv append helpers
 # =========================
 acquire_lock <- function(lock_dir, timeout_sec = 300, sleep_sec = 0.1) {
   start_time <- Sys.time()
@@ -283,10 +273,12 @@ compute_linear_signal_from_scores <- function(xi_mat, beta_coef) {
 }
 
 apply_response_transform <- function(u, y_mode) {
-  if (y_mode == "flr_linear") return(u)
-  if (y_mode == "flr_square") return(u^2)
-  if (y_mode == "flr_cube") return(u + u^2 + 0.001 * u^3)
-  stop("Unsupported y_mode.")
+  switch(
+    y_mode,
+    flr_linear = u,
+    flr_square = u^2,
+    flr_cube = u + u^2 + 0.001 * u^3
+  )
 }
 
 # =========================
@@ -307,32 +299,28 @@ generate_score_matrix <- function(n, K, score_dist) {
       xi_mat[, j] <- j^(-1) * rt(n, df = 5) / sqrt(5 / 3)
     } else if (score_dist == "gamma") {
       xi_mat[, j] <- sqrt(lam_true[j]) * centered_gamma(n)
-    } else {
-      stop("Unsupported score_dist.")
-    }
+    } 
   }
 
   xi_mat
 }
 
 generate_measurement_noise <- function(m, x_noise_dist, x_meas_sd) {
-  if (x_noise_dist == "gaussian") {
-    return(rnorm(m, mean = 0, sd = x_meas_sd))
-  }
-  if (x_noise_dist == "t3") {
-    return(rt(m, df = 3))
-  }
-  if (x_noise_dist == "gamma") {
-    return(x_meas_sd * centered_gamma(m))
-  }
-  stop("Unsupported x_noise_dist.")
+  switch(
+    x_noise_dist,
+    gaussian = rnorm(m, mean = 0, sd = x_meas_sd),
+    t3 = rt(m, df = 3),
+    gamma = x_meas_sd * centered_gamma(m)
+  )
 }
 
 get_measurement_noise_variance <- function(x_noise_dist, x_meas_sd) {
-  if (x_noise_dist == "gaussian") return(x_meas_sd^2)
-  if (x_noise_dist == "t3") return(3)
-  if (x_noise_dist == "gamma") return(x_meas_sd^2)
-  stop("Unsupported x_noise_dist.")
+  switch(
+    x_noise_dist,
+    gaussian = x_meas_sd^2,
+    t3 = 3,
+    gamma = x_meas_sd^2
+  )
 }
 
 generate_curve_sample <- function(
@@ -539,7 +527,7 @@ run_embedding_method <- function(train_dat, test_dat) {
 }
 
 # =========================
-# 6) fpca and main-aligned beta-method utilities
+# 6) fpca and utilities
 # =========================
 main_sigma2_value <- 0.01
 
@@ -646,12 +634,6 @@ GetSmoothedMeanCurve_mainlike <- function(y, t, obsGrid, regGrid, optns){
   kernel = optns$kernel
 
   if (is.list(userMu) && (length(userMu$mu) == length(userMu$t))) {
-    buff <- .Machine$double.eps * max(abs(obsGrid)) * 10
-    rangeUser <- range(optns$userMu$t)
-    rangeObs <- range(obsGrid)
-    if (rangeUser[1] > rangeObs[1] + buff || rangeUser[2] < rangeObs[2] - buff) {
-      stop('The range defined by the user provided mean does not cover the support of the data.')
-    }
     mu <- spline(userMu$t, userMu$mu, xout = obsGrid)$y
     muDense <- spline(obsGrid, mu, xout = regGrid)$y
     bw_mu <- NULL
@@ -661,9 +643,6 @@ GetSmoothedMeanCurve_mainlike <- function(y, t, obsGrid, regGrid, optns){
     } else {
       if (any(methodBwMu == c('GCV', 'GMeanAndGCV'))) {
         bw_mu <- unlist(fdapace:::GCVLwls1D1(yy = y, tt = t, kernel = kernel, npoly = npoly, nder = nder, dataType = optns$dataType))[1]
-        if (0 == length(bw_mu)) {
-          stop('The data is too sparse to estimate a mean function. Get more data!')
-        }
         if (methodBwMu == 'GMeanAndGCV') {
           minbw <- fdapace:::Minb(unlist(t), 2)
           bw_mu <- sqrt(minbw * bw_mu)
@@ -702,10 +681,6 @@ FPCA_CE_mainlike <- function(Ly, Lt, optns = list()) {
     }
 
     GetIndCEScores <- function(yVec, muVec, lamVec, phiMat, Sigma_Yi, newyInd = NULL, verbose = FALSE) {
-      if (length(yVec) == 0) {
-        if (verbose) warning('Empty observation found, possibly due to truncation')
-        return(list(xiEst = matrix(NA, length(lamVec)), xiVar = matrix(NA, length(lamVec), length(lamVec)), fittedY = matrix(NA, 0, 0)))
-      }
       if (!is.null(newyInd)) {
         if (length(yVec) != 1) {
           newPhi <- phiMat[newyInd, , drop = FALSE]
@@ -726,7 +701,6 @@ FPCA_CE_mainlike <- function(Ly, Lt, optns = list()) {
       fdapace:::GetIndCEScoresCPP(yVec, muVec, lamVec, phiMat, Sigma_Yi)
     }
 
-    if (length(lambda) != ncol(phi)) stop('No of eigenvalues is not the same as the no of eigenfunctions.')
     if (is.null(sigma2)) sigma2 <- 0
     Sigma_Y <- fittedCov + diag(sigma2, nrow(phi))
     MuPhiSig <- GetMuPhiSig(t, obsGrid, mu, phi, Sigma_Y)
@@ -986,7 +960,7 @@ CVr_main <- function(train_dat, Y, kfold = pc_cv_folds, method = "IN", S = split
 
 
 # =========================
-# 7) PACE-RKHS method from Avery et al. (2014)
+# 7) PACE-RKHS method
 # =========================
 rkhs_rho_multipliers <- c(0.25, 0.50, 0.75, 1.00, 1.25, 1.50)
 rkhs_lambda_grid <- c(1e-5, 5e-5, 1e-4, 5e-4, 1e-3, 5e-3, 1e-2)
@@ -1031,9 +1005,6 @@ get_fpca_mu_on_work_grid <- function(fpca_obj, work_grid) {
 
 predict_ce_scores_from_fpca <- function(fpca_obj, Ly_list, Lt_list, num_pc) {
   work_grid <- fpca_obj$workGrid
-  if (is.null(work_grid)) {
-    stop("FPCA object does not contain workGrid.")
-  }
   phi <- as.matrix(fpca_obj$phi[, seq_len(num_pc), drop = FALSE])
   lambda <- as.numeric(fpca_obj$lambda[seq_len(num_pc)])
   mu_grid <- get_fpca_mu_on_work_grid(fpca_obj, work_grid)
@@ -1068,9 +1039,6 @@ predict_ce_scores_from_fpca <- function(fpca_obj, Ly_list, Lt_list, num_pc) {
 
 reconstruct_pace_curves <- function(fpca_obj, score_mat, num_pc) {
   work_grid <- fpca_obj$workGrid
-  if (is.null(work_grid)) {
-    stop("FPCA object does not contain workGrid.")
-  }
 
   score_mat <- as.matrix(score_mat[, seq_len(num_pc), drop = FALSE])
   phi <- as.matrix(fpca_obj$phi[, seq_len(num_pc), drop = FALSE])
@@ -1083,9 +1051,6 @@ reconstruct_pace_curves <- function(fpca_obj, score_mat, num_pc) {
 
 trapezoid_weights <- function(grid) {
   grid <- as.numeric(grid)
-  if (length(grid) < 2L) {
-    stop("At least two grid points are required for L2 integration.")
-  }
 
   w <- numeric(length(grid))
   dx <- diff(grid)
@@ -1100,9 +1065,6 @@ trapezoid_weights <- function(grid) {
 pairwise_l2_curve_dist <- function(curve_1, grid, curve_2 = NULL) {
   curve_1 <- as.matrix(curve_1)
   weights <- trapezoid_weights(grid)
-  if (ncol(curve_1) != length(weights)) {
-    stop("curve_1 and grid have incompatible dimensions.")
-  }
 
   if (is.null(curve_2)) {
     norm_1 <- as.vector((curve_1^2) %*% weights)
@@ -1110,9 +1072,6 @@ pairwise_l2_curve_dist <- function(curve_1, grid, curve_2 = NULL) {
     D2 <- outer(norm_1, norm_1, "+") - 2 * cross
   } else {
     curve_2 <- as.matrix(curve_2)
-    if (ncol(curve_2) != length(weights)) {
-      stop("curve_2 and grid have incompatible dimensions.")
-    }
     norm_1 <- as.vector((curve_1^2) %*% weights)
     norm_2 <- as.vector((curve_2^2) %*% weights)
     cross <- (curve_1 * matrix(weights, nrow = nrow(curve_1), ncol = ncol(curve_1), byrow = TRUE)) %*% t(curve_2)
@@ -1215,9 +1174,6 @@ run_pace_rkhs_method <- function(train_dat, test_dat, seed) {
     ncol(as.matrix(fpca_fit$phi)),
     length(fpca_fit$lambda)
   )
-  if (!is.finite(num_pc) || num_pc < 1L) {
-    stop("BIC selected no valid FPCA components for pace_rkhs.")
-  }
 
   score_train <- get_valid_score_matrix(fpca_fit$xiEst, num_pc)
   num_pc <- ncol(score_train)
@@ -1464,9 +1420,6 @@ run_one_replication <- function(cfg, rep_idx) {
 run_task <- function(task_id) {
   task_grid <- make_task_grid()
   write_manifest_if_needed(task_grid)
-  if (task_id < 1 || task_id > nrow(task_grid)) {
-    stop(sprintf("task_id must be between 1 and %d.", nrow(task_grid)))
-  }
 
   cfg <- task_grid[task_id, , drop = FALSE]
   cfg$task_id <- task_id
@@ -1511,9 +1464,6 @@ run_task <- function(task_id) {
       return(NULL)
     }
 
-    # If a previous run appended the same replication more than once, keep the
-    # last row for that replication. This preserves resume behavior while
-    # avoiding duplicated rows in the final per-replication output.
     existing$.row_order_for_resume <- seq_len(nrow(existing))
     existing <- existing[order(existing$rep, existing$.row_order_for_resume), , drop = FALSE]
     existing <- existing[!duplicated(existing$rep, fromLast = TRUE), , drop = FALSE]
@@ -1556,7 +1506,7 @@ run_task <- function(task_id) {
   missing_reps <- setdiff(seq_len(n_reps), existing_reps)
 
   cat(sprintf(
-    "[fdr_2.R] resume check task_id=%s run_tag=%s existing=%d missing=%d total=%d per_rep=%s\n",
+    "resume check task_id=%s run_tag=%s existing=%d missing=%d total=%d per_rep=%s\n",
     cfg$task_id,
     run_tag,
     length(existing_reps),
@@ -1612,8 +1562,6 @@ run_task <- function(task_id) {
 
       rep_results[[length(rep_results) + 1L]] <- rep_row
 
-      # Real-time local write: this file lives inside the folder for this
-      # parameter combination and will contain all n_reps rows after completion.
       append_row_atomic(rep_row, per_rep_path)
       append_row_atomic(rep_row, global_seed_live_path)
 
@@ -1623,7 +1571,7 @@ run_task <- function(task_id) {
         format(rep_row$pred_mse, digits = 8, scientific = TRUE)
       )
       cat(sprintf(
-        "[fdr_2.R] task_id=%s rep=%d/%d pred_mse=%s wrote=%s\n",
+        "task_id=%s rep=%d/%d pred_mse=%s wrote=%s\n",
         cfg$task_id,
         rep_idx,
         n_reps,
@@ -1634,7 +1582,7 @@ run_task <- function(task_id) {
     }
   } else {
     cat(sprintf(
-      "[fdr_2.R] task_id=%s already complete; rebuilding summary only.\n",
+      "task_id=%s already complete; rebuilding summary only.\n",
       cfg$task_id
     ))
     flush.console()
@@ -1653,7 +1601,6 @@ run_task <- function(task_id) {
     rownames(rep_df) <- NULL
   }
 
-  # Rewrite the per-replication CSV in a clean, sorted, de-duplicated form.
   write.csv(rep_df, per_rep_path, row.names = FALSE)
 
   u_all <- if ("u_values" %in% names(rep_df)) {
@@ -1723,20 +1670,15 @@ aggregate_global_summary <- function() {
 # 10) cli
 # =========================
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) == 0) stop("Usage: Rscript fdr_2.R task <task_id>")
 mode <- args[[1]]
 
 if (mode == "task") {
-  if (length(args) < 2) stop("Please provide task id.")
-  task_id <- as.integer(args[[2]])
-  run_task(task_id)
+  run_task(as.integer(args[[2]]))
 } else if (mode == "manifest") {
   task_grid <- make_task_grid()
   dir.create(root_results_dir, recursive = TRUE, showWarnings = FALSE)
   write_manifest_if_needed(task_grid)
   print(task_grid)
-} else if (mode == "aggregate") {
-  aggregate_global_summary()
 } else {
-  stop("Unsupported mode.")
+  aggregate_global_summary()
 }
