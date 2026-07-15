@@ -150,11 +150,11 @@ your chosen grid.
 If you use this code, please cite:
 
 ```bibtex
-@article{wong_cao_li_2025_setembedding,
+@article{wong_cao_li_2026_setembedding,
   title   = {Functional Regression via Set Embedding},
   author  = {Wong, Raymond K. W. and Cao, Guanqun and Li, Yehua},
-  journal = {Biometrika},
-  year    = {2025},
+  journal = {},
+  year    = {2026},
   note    = {Submitted}
 }
 ```
