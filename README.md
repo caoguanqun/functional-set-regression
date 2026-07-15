@@ -6,8 +6,7 @@ Simulation code accompanying:
 
 This repository contains the R code used to run the simulation study in Section 6.1 of the
 paper and Section S.4 of the Supplementary Material (Tables 1–2 in the main text and
-Tables S.1–S.7 in the supplement), along with the aggregated output tables that those tables
-were built from.
+Tables S.1–S.7 in the supplement).
 
 ## What the simulation does
 
@@ -56,10 +55,7 @@ The paper compares the proposed estimator against five benchmarks (Section 6.1).
 └── README.md
 ```
 
-Each file in `results_summary/` is the `all_method_config_summary.csv` produced by one
-simulation run, renamed to indicate the run's scope (e.g. `embedding_50_summary.csv` is the
-proposed method at `n = 50`; `pace_rkhs_n50_100_obs30_60_summary.csv` sweeps the RKHS
-competitor over `n ∈ {50,100}` and `M ∈ {30,60}`). Column definitions:
+Column definitions:
 
 | Column | Meaning |
 |---|---|
