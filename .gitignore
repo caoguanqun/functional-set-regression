@@ -1,0 +1,18 @@
+# Raw per-replication / per-task simulation output (regenerate with code/fdr.R)
+results_*/
+!results_summary/
+
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rout
+
+# SLURM logs
+logs/
+*.out
+*.err
+
+# OS
+.DS_Store
+Thumbs.db

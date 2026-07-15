@@ -1,0 +1,2 @@
+"task_id","run_tag","n","obs_count","obs_count_mode","y_mode","score_dist","x_noise_dist","method","n_reps","n_success","mean_pred_mse","sd_pred_mse","u_min","u_q25","u_median","u_q75","u_max","mean_runtime_seconds","total_runtime_seconds"
+13,"n_50_obs_30_obsmode_fixed_ymode_flr_linear_score_gaussian_xnoise_t3_method_split_s5",50,30,"fixed","flr_linear","gaussian","t3","split_s5",50,50,0.414558122394146,0.07521237018053,-3.88414857733247,-0.634612666528023,-0.00983206713669518,0.640754843242957,5.2473189046048,759.1165,37955.825
